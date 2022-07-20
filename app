@@ -1,0 +1,345 @@
+#!/usr/bin/env fish
+
+function logger-warn
+  set_color magenta
+  echo "$prefix ! $argv[1..-1]"
+  set_color normal
+end
+function logger-error
+  set_color red
+  echo "$prefix x $argv[1..-1]"
+  set_color normal
+end
+function logger-info-start
+  set_color normal
+  echo "$prefix + $argv[1..-1]"
+  set_color normal
+end
+function logger-info-end
+  set_color normal
+  echo "$prefix - $argv[1..-1]"
+  set_color normal
+end
+function logger-debug
+  set_color yellow
+  echo "$prefix ? $argv[1..-1]"
+  set_color normal
+end
+function logger-success
+  set_color green
+  echo "$prefix √ $argv[1..-1]"
+  set_color normal
+end
+function logger -d "a lib to print msg quickly"
+switch $argv[1]
+case 0
+  logger-info-start $argv[2..-1]
+case 1
+  logger-info-end $argv[2..-1]
+case 2
+  logger-success $argv[2..-1]
+case 3
+  logger-debug $argv[2..-1]
+case 4
+  logger-warn $argv[2..-1]
+case 5
+  logger-error $argv[2..-1]
+end
+end
+
+function fmt_banner
+    set fmt_banner_text "|$argv|"
+    set fmt_banner_text_count (echo -n "$fmt_banner_text" | wc -m)
+    fmt_reset
+    set fmt_banner_raw (printf '=%.0s' (seq 1 (math "($cols-$fmt_banner_text_count)/2")))
+    echo "$fmt_banner_raw$fmt_banner_text$fmt_banner_raw"
+end
+
+function fmt_reset
+set cols $(tput cols)
+set lines $(tput lines)
+end
+function fmt_bottom
+    set fmt_bottom_text "$argv"
+    fmt_reset
+    tput sc
+    tput cup (math "$lines-2") 0
+    echo "$fmt_bottom_text"
+end
+function fmt_center
+        set fmt_center_text "$argv"
+        set fmt_center_text_count (printf "$fmt_center_text" | wc -m)
+        fmt_reset
+        set fmt_center_raw (printf ' %.0s' (seq 1 (math "($cols-$fmt_center_text_count)/2")))
+        echo "$fmt_center_raw$fmt_center_text$fmt_center_raw"
+end
+function fmt_stage
+    fmt_reset
+    set stage $argv[1]
+    if test -z $stage
+        set_color red
+        echo "$prefix x Unknown stage, abort"
+        set_color normal
+        exit 128
+    end
+    set fmt_stage_front (printf '=%.0s' (seq 0 (math "($cols-25)*$stage")))
+    set fmt_stage_precent $(math -s0 "$stage*100")%
+    set fmt_stage_back (printf ' %.0s' (seq 0 (math "($cols-25)-(($cols-25)*$stage)-1")))
+    echo "[$fmt_stage_front>$fmt_stage_back] Current Stage: $fmt_stage_precent"
+end
+
+function error_input
+    clear
+    fmt_banner "ConvallariaLinux Installation"
+    echo
+    fmt_center "$argv[2..-1]"
+    fmt_bottom "[Press enter to re-enter this stage]"
+    read -P "" pause
+    $argv[1]
+end
+
+function guide
+    clear
+    fmt_banner "ConvallariaLinux Installation"
+    fmt_stage 0.1
+    echo "Stage1: Intro"
+    echo
+    fmt_center "This is ConvallariaLinux Installer"
+    fmt_center "This Program is released under GPLv3, you're free to copy, modify this program"
+    fmt_center "This guide will help you install ConvallarLinux on your server"
+    fmt_center "Be sure you've already got a backup"
+    fmt_center "If you want to abort, please type menu at any point when installer ask you to input, then choose the exit stage"
+    fmt_bottom "[Press enter to continue]"
+    read -P "" pause
+    stage1
+end
+function stage4
+    clear
+    fmt_banner "ConvallariaLinux Installer"
+    fmt_stage 0.7
+    echo "Stage4: Set mirror"
+    echo
+    fmt_center "Use set <url> to set a debian mirror for debootstrap to grab from"
+    fmt_center "Example: set https://mirrors.bfsu.edu.cn/debian/"
+    fmt_bottom "$prefix console @ stage4 ~>"
+    read -P "" input -a
+    switch $input[1]
+    case menu
+        stage_menu
+    case set
+        set mirror $input[2] 
+        if test -z $mirror
+            error_input stage4 "Zero length is not allowed"
+        else
+            stage5
+        end
+    case '*'
+        error_input 'stage4' "Unknown Input"
+end
+end
+function stage3
+    clear
+    fmt_banner "ConvallariaLinux Installation"
+    fmt_stage 0.5
+    echo "Stage3: Partition"
+    echo
+    fmt_center "Pick up two partition for installing the system"
+    fmt_center "Use modify to modify your disk"
+    echo
+    fmt_center "Set example for MBR user: set mbr /dev/sda1 /dev/sda2 /dev/sda"
+    fmt_center "Sda1 will be mounted to /, sda2 will be mount to /opt, MBR record will be write on /dev/sda"
+    fmt_center "Set example for UEFI user: set efi /dev/sda1 /dev/sda2 /dev/sda3"
+    fmt_center "Sda1 will be mounted to /, sda2 will be mount to /opt, sda3 will be your esp partition"
+    fmt_center "/opt will be configured to store data"
+    fmt_bottom "$prefix console @ stage3 ~>"
+    read -P "" input -a
+    switch $input[1]
+        case menu
+            stage_menu
+        case modify
+            sudo cfdisk
+            stage3
+        case set
+            switch $input[2]
+                case efi
+                    if test -e $input[3]; and test -e $input[4]; and test -e $input[5]
+                        set install_root $input[3]
+                        set install_opt $input[4]
+                        set install_boot $input[5]
+                        set efi on
+                        stage4
+                    else
+                        error_input stage3 "At least one disk is not available, please check again"
+                    end
+                case mbr
+                    if test -e $input[3]; and test -e $input[4]; and test -e $input[5]
+                        set install_root $input[3]
+                        set install_opt $input[4]
+                        set install_boot $input[5]
+                        stage4
+                    else
+                        error_input stage3 "At least one disk is not available, please check again"
+                    end
+                case '*'
+                    error_input stage3 "Unknown Input $input[2], only efi and mbr are accepted"
+            end
+        case '*'
+            error_input stage3 "Unknown Input"
+    end
+end
+
+function stage5
+    clear
+    fmt_banner "ConvallariaLinux Installer"
+    fmt_stage 0.9
+    echo "Stage5: Confirm action"
+    echo
+    fmt_center "Final confirm(type yes to continue)"
+    fmt_center "Timezone: $tz"
+    fmt_center "$install_root will be formated to ext4 and mount on /"
+    fmt_center "Debootstrap will grab from $mirror"
+    if test $efi = "on"
+        fmt_center "$install_boot will be set as EFI partition"
+    else
+        fmt_center "Grub record will write to $install_boot"
+    end
+    fmt_bottom "$prefix console @ stage5 ~>"
+    read -P "" input -a
+    switch $input[1]
+        case menu
+            stage_menu
+        case y Y
+            installer
+        case '*'
+            error_input 'stage5' "Unknown Input"
+    end
+end
+function stage2
+    clear
+    fmt_banner "ConvallariaLinux Installer"
+    fmt_stage 0.3
+    echo "Stage2: User settings"
+    echo
+    fmt_center "Set your root password here"
+    fmt_center "Example: set password01"
+    fmt_bottom "$prefix console @ stage2 ~>"
+    read -P "" input -a
+    switch $input[1]
+        case menu
+            stage_menu
+        case set
+            set pwd $input[2..-1]
+            if test -z $pwd
+                error_input stage2 "Password with zero length is not allowed"
+            else
+                stage3
+            end
+        case '*'
+            error_input 'stage2' "Unknown Input"
+    end
+end
+
+function stage_menu
+    clear
+    fmt_banner "ConvallariaLinux Installation"
+    echo "Stage Menu"
+    logger
+end
+function stage1
+    clear
+    fmt_banner "ConvallariaLinux Installer"
+    fmt_stage 0.2
+    echo "Stage1: Timezone settings"
+    echo
+    fmt_center "Type your timezone here"
+    fmt_center "Use list to view all time zone"
+    fmt_center "Use set <Your timezone> to confirm settings"
+    fmt_bottom "$prefix console @ stage1 ~>"
+    read -P "" input -a
+    switch $input[1]
+        case set
+            if timedatectl list-timezones | grep -qs $input[2..-1]
+            set tz $input[2..-1]
+            stage2
+            else
+                error_input 'stage1' "The timezone you typed is not found on this system, please use list to see available timezones on this system"
+            end
+        case list
+            timedatectl list-timezones
+            stage1
+        case menu
+            stage_menu
+        case '*'
+            error_input 'stage1' "Unknown Input"
+    end
+end
+
+function installer
+    logger 4 "Start installing ConvallariaLinux to target machine"
+    if curl -sL 'https://ruzhtw.top/' | grep -qs '<title>page</title>'
+        logger 0 "Start formating root to ext4"
+        if sudo mkfs -t ext4 $install_root
+            logger 2 Formated
+            logger 0 "Mounting to /mnt..."
+            sudo mkdir -p /cva_install
+            if sudo mount $install_root /cva_install
+                logger 2 Mounted
+            else
+                logger 5 "Failed to mount $install_root to /cva_install, abort"
+                exit 128
+            end
+        else
+            logger 5 "Failed to format $install_root to ext4, abort"
+            exit 128
+        end
+        env DEBIAN_FRONTEND=noninteractive
+        if sudo debootstrap \
+                --components=main contrib non-free stable \
+                --include=systemd-container,fish,curl,wget,file,jq,grub,sudo,gnupg \
+                /cva_install $mirror
+            for chroot_mount_target in /dev /dev/pts /proc /sys
+                sudo mount -o bind,rw $chroot_mount_target /cva_install/$chroot_mount_target
+            end
+            logger 0 "Configuring..."
+            chroot /cva_install sh -c "echo root:$pwd | chpasswd"
+            if test $efi = on
+                sudo mount -t efivarfs none /sys/firmware/efi/efivars
+                sudo mkdir -p /cva_install/boot/efi
+                sudo mount -o bind,rw $install_boot /cva_install/boot/efi
+                sudo mount -o bind,rw /sys/firmware/efi/efivars /cva_install/sys/firmware/efi/efivars
+                sudo chroot /cva_install sh -c "sudo grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Convallaria --recheck && sudo update-grub"
+            else
+                sudo mkdir -p /cva_install/boot/efi
+                sudo chroot /cva_install sh -c "grub-install --force --target=i386-pc --recheck --boot-directory=/boot && sudo update-grub"
+            end
+            logger 2 "Bootstraped, start installing Convallaria Tools"
+            sudo cp /usr/bin/ctpkg /cva_install/usr/bin/ctpkg
+            sudo chmod +x /cva_install/usr/bin/ctpkg
+            chroot /cva_install sh -c 'ctpkg grab upd -y && ctpkg grab ctpkg ctcontainer center-grub-theme -y'
+            logger 2 "Installed, please reboot to Convallaria on disk"
+        else
+            logger 5 "Failed to bootstrap, abort"
+            exit 128
+        end
+    else
+        logger 5 "Network is not connected, abort"
+        exit 128
+    end
+end
+
+echo Build_Time_UTC=2022-07-20_03:09:18
+set -lx prefix "[ConvallariaInstaller]"
+set -x cols
+set -x lines
+set -x tz
+set -x pwd
+set -x install_opt
+set -x install_root
+set -x install_boot
+set -x mirror
+set -x efi
+switch $argv[1]
+    case config
+    case '*'
+        guide
+end
