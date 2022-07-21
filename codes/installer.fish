@@ -22,10 +22,10 @@ function installer
             logger 5 "Failed to format $install_root to ext4, abort"
             exit 128
         end
-        env DEBIAN_FRONTEND=noninteractive
+        set DEBIAN_FRONTEND noninteractive
         if sudo debootstrap \
                 --components=main contrib non-free stable \
-                --include=systemd-container,fish,curl,wget,file,jq,grub,sudo,gnupg \
+                --include=systemd-container,fish,curl,wget,file,jq,grub,sudo,gnupg,grub \
                 /cva_install $mirror
             for chroot_mount_target in /dev /dev/pts /proc /sys
                 sudo mount -o bind,rw $chroot_mount_target /cva_install/$chroot_mount_target
