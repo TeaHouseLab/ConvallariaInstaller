@@ -9,7 +9,10 @@ set -x install_boot
 set -x mirror
 set -x efi
 switch $argv[1]
-    case config
+    case install
+        installer $argv[2..-1]
+    case v version
+        logger 1 "Joshua@build1"
     case '*'
         guide
 end

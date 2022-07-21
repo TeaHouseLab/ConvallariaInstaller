@@ -1,4 +1,10 @@
 function installer
+    for var in tz pwd install_boot install_opt install_root mirror
+        if test -z $$var
+            logger 5 "Var $var is not configured, refuse to start"
+            exit 128
+        end
+    end
     logger 4 "Start installing ConvallariaLinux to target machine"
     if curl -sL 'https://ruzhtw.top/' | grep -qs '<title>page</title>'
         logger 0 "Start formating root to ext4"

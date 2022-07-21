@@ -56,8 +56,8 @@ function fmt_banner
 end
 
 function fmt_reset
-set cols $(tput cols)
-set lines $(tput lines)
+set cols (tput cols)
+set lines (tput lines)
 end
 function fmt_bottom
     set fmt_bottom_text "$argv"
@@ -83,7 +83,7 @@ function fmt_stage
         exit 128
     end
     set fmt_stage_front (printf '=%.0s' (seq 0 (math "($cols-25)*$stage")))
-    set fmt_stage_precent $(math -s0 "$stage*100")%
+    set fmt_stage_precent (math -s0 "$stage*100")%
     set fmt_stage_back (printf ' %.0s' (seq 0 (math "($cols-25)-(($cols-25)*$stage)-1")))
     echo "[$fmt_stage_front>$fmt_stage_back] Current Stage: $fmt_stage_precent"
 end
@@ -243,7 +243,32 @@ function stage_menu
     clear
     fmt_banner "ConvallariaLinux Installation"
     echo "Stage Menu"
-    logger
+    echo
+    fmt_center "Choose a stage to enter"
+    fmt_center "(1)Stage1: Set TimeZone"
+    fmt_center "(2)Stage2: User Settings"
+    fmt_center "(3)Stage3: Partition"
+    fmt_center "(4)Stage4: Debootstrap set mirror"
+    fmt_center "(5)Stage5: Final Confirm"
+    fmt_center "(6)Abort installation"
+    fmt_bottom "$prefix console @ menu ~>"
+    read -n1 -P "" input
+    switch $input
+    case 1
+        stage1
+    case 2
+        stage2
+    case 3
+        stage3
+    case 4
+        stage4
+    case 5
+        stage5
+    case 6
+        exit
+    case '*'
+        error_input 'stage_menu' 'Unknown Input'
+    end
 end
 function stage1
     clear
@@ -275,6 +300,12 @@ function stage1
 end
 
 function installer
+    for var in tz pwd install_boot install_opt install_root mirror
+        if test -z $$var
+            logger 5 "Var $var is not configured, refuse to start"
+            exit 128
+        end
+    end
     logger 4 "Start installing ConvallariaLinux to target machine"
     if curl -sL 'https://ruzhtw.top/' | grep -qs '<title>page</title>'
         logger 0 "Start formating root to ext4"
@@ -327,7 +358,7 @@ function installer
     end
 end
 
-echo Build_Time_UTC=2022-07-20_03:09:18
+echo Build_Time_UTC=2022-07-21_02:59:57
 set -lx prefix "[ConvallariaInstaller]"
 set -x cols
 set -x lines
@@ -339,7 +370,10 @@ set -x install_boot
 set -x mirror
 set -x efi
 switch $argv[1]
-    case config
+    case install
+        installer $argv[2..-1]
+    case v version
+        logger 1 "Joshua@build1"
     case '*'
         guide
 end

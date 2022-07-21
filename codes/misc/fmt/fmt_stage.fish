@@ -8,7 +8,7 @@ function fmt_stage
         exit 128
     end
     set fmt_stage_front (printf '=%.0s' (seq 0 (math "($cols-25)*$stage")))
-    set fmt_stage_precent $(math -s0 "$stage*100")%
+    set fmt_stage_precent (math -s0 "$stage*100")%
     set fmt_stage_back (printf ' %.0s' (seq 0 (math "($cols-25)-(($cols-25)*$stage)-1")))
     echo "[$fmt_stage_front>$fmt_stage_back] Current Stage: $fmt_stage_precent"
 end
